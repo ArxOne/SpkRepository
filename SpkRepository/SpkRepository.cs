@@ -14,22 +14,25 @@ public class SpkRepository
 
     private readonly SpkRepositoryConfiguration _configuration;
     private readonly IReadOnlyCollection<SpkRepositorySource> _sources;
+    private readonly string[] _gpgPublicKeys;
 
-    public SpkRepository(SpkRepositoryConfiguration configuration, string webRoot, IEnumerable<SpkRepositorySource> sources)
+    public SpkRepository(SpkRepositoryConfiguration configuration, string webRoot, IEnumerable<SpkRepositorySource> sources, params string[] gpgPublicKeyPaths)
     {
         WebRoot = webRoot;
         _configuration = configuration;
         _sources = sources.ToImmutableArray();
+        _gpgPublicKeys = gpgPublicKeyPaths.Select(s => File.ReadAllText(s).Replace("\r", "")).ToArray();
     }
 
     public IEnumerable<(string Path, Delegate? Handler)> GetRoutes()
     {
         var packages = GetPackages(_sources, false);
-        yield return (WebRoot, delegate ()
+        yield return (WebRoot, delegate (string unique, string? language)
         {
             return new Dictionary<string, object>
             {
-                { "packages", packages.Select(p=>p.Info) }
+                { "packages", packages.Select(p=>p.GetPackage(language)) },
+                { "keyrings", _gpgPublicKeys }
             };
         }
         );
@@ -37,8 +40,9 @@ public class SpkRepository
 
     private IEnumerable<SpkRepositoryPackageInformation> GetPackages(IEnumerable<SpkRepositorySource> sources, bool includeBeta)
     {
+        var packageInformations = ReadPackageInformations(sources).Values;
         var packagesByName =
-            from information in ReadPackageInformations(sources).Values
+            from information in packageInformations
             let package = information.Package
             where package is not null
             where includeBeta || !information.Beta
@@ -124,7 +128,7 @@ public class SpkRepository
                         continue;
 
                     var thumbnailsId = icons.ToDictionary(
-                        i => Convert.ToBase64String(SHA1.HashData(i.Value)).TrimEnd('=') + ".png",
+                        i => Convert.ToHexString(MD5.HashData(i.Value)) + ".png",
                         kv => (Name: kv.Key, Data: kv.Value));
                     foreach (var thumbnail in thumbnailsId)
                         repositoryCache.Thumbnails[thumbnail.Key] = thumbnail.Value.Data;

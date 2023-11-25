@@ -9,13 +9,13 @@ public class SpkRepositoryCache
 {
     public SpkRepositoryPackageInformation[] Packages { get; set; } = Array.Empty<SpkRepositoryPackageInformation>();
 
-    [JsonIgnore]
+    //[JsonIgnore]
     public Dictionary<string, byte[]> Thumbnails { get; set; } = new();
 
-    [JsonPropertyName("thumbnails")]
-    public Dictionary<string, object> SerializableThumbnails
-    {
-        get { return Thumbnails.ToDictionary(kv => kv.Key, kv => (object) Convert.ToBase64String(kv.Value)); }
-        set { Thumbnails = value.ToDictionary(kv => kv.Key, kv => Convert.FromBase64String((string) kv.Value)); }
-    }
+    //[JsonPropertyName("thumbnails")]
+    //public Dictionary<string, object> SerializableThumbnails
+    //{
+    //    get { return Thumbnails.ToDictionary(kv => kv.Key, kv => (object) Convert.ToBase64String(kv.Value)); }
+    //    set { Thumbnails = value.ToDictionary(kv => kv.Key, kv => Convert.FromBase64String((string) kv.Value)); }
+    //}
 }

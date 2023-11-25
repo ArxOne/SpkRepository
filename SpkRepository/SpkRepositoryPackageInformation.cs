@@ -1,13 +1,46 @@
 ﻿
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace ArxOne.Synology;
 
 public class SpkRepositoryPackageInformation
 {
-    public Dictionary<string, object> Info { get; set; }
-  
+    [JsonIgnore]
+    public Dictionary<string, object?> Info { get; set; }
+
+    #region Serialization garbage (or failure)
+
+    [JsonPropertyName("Info")]
+    public Dictionary<string, object> SerializableInfo
+    {
+        get { return Info; }
+        set
+        {
+            Info = value.ToDictionary(kv => kv.Key, kv => GetJsonValue((JsonElement)kv.Value));
+        }
+    }
+
+    private static object? GetJsonValue(JsonElement jsonElement)
+    {
+        return jsonElement.ValueKind switch
+        {
+            //JsonValueKind.Undefined => expr,
+            //JsonValueKind.Object => jsonElement.GetValue<IDictionary<string, object>>(),
+            JsonValueKind.Array => jsonElement.EnumerateArray().Select(GetJsonValue).ToArray(),
+            JsonValueKind.String => jsonElement.GetString(),
+            JsonValueKind.Number => jsonElement.GetInt32(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null,
+            _ => throw new ArgumentOutOfRangeException()
+        };
+    }
+    #endregion
+
     public Dictionary<string, string> Thumbnails { get; set; } = new();
 
     public string LocalPath { get; set; }
@@ -46,5 +79,10 @@ public class SpkRepositoryPackageInformation
                 return false;
             return new SpkBool(stringBeta);
         }
+    }
+
+    public SpkRepositoryPackage GetPackage(string? language)
+    {
+        return new SpkRepositoryPackage(Info, language);
     }
 }
