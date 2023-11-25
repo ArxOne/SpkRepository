@@ -1,4 +1,6 @@
-﻿namespace ArxOne.Synology;
+﻿using System.IO;
+
+namespace ArxOne.Synology;
 
 public class SpkRepositoryConfiguration
 {

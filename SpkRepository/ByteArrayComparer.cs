@@ -1,4 +1,7 @@
-﻿namespace ArxOne.Synology;
+﻿using System;
+using System.Collections.Generic;
+
+namespace ArxOne.Synology;
 
 internal class ByteArrayComparer : IEqualityComparer<byte[]>
 {

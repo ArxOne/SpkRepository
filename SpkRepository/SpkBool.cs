@@ -1,4 +1,6 @@
-﻿namespace ArxOne.Synology;
+﻿using System;
+
+namespace ArxOne.Synology;
 
 public class SpkBool
 {

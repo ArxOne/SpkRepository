@@ -1,4 +1,7 @@
-﻿namespace ArxOne.Synology;
+﻿using System.Collections.Generic;
+using System.IO;
+
+namespace ArxOne.Synology;
 
 public delegate (IReadOnlyDictionary<string, object>? Info, IReadOnlyDictionary<string, byte[]> Icons) ReadPackageInfo(Stream spkStream);
 
