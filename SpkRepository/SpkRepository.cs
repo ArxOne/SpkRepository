@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
+using ArxOne.Synology.Utility;
+using Microsoft.VisualBasic.CompilerServices;
 
 namespace ArxOne.Synology;
 
@@ -26,36 +28,36 @@ public class SpkRepository
 
     public IEnumerable<(string Path, Delegate? Handler)> GetRoutes()
     {
-        var packages = GetPackages(_sources, false);
-        yield return (WebRoot, delegate (string unique, string? language)
-        {
-            return new Dictionary<string, object>
-            {
-                { "packages", packages.Select(p=>p.GetPackage(language)) },
-                { "keyrings", _gpgPublicKeys }
-            };
-        }
+        var packages = GetPackages(_sources);
+        yield return (WebRoot, delegate (string unique, string? language, string? package_update_channel)
+                {
+                    var beta = string.Equals(package_update_channel, "beta", StringComparison.InvariantCultureIgnoreCase);
+                    return new Dictionary<string, object>
+                    {
+                        {"packages", packages.Select(p => (beta ? p.Beta : p.Stable)?.GetPackage(language)).Where(p => p is not null)},
+                        {"keyrings", _gpgPublicKeys}
+                    };
+                }
         );
     }
 
-    private IEnumerable<SpkRepositoryPackageInformation> GetPackages(IEnumerable<SpkRepositorySource> sources, bool includeBeta)
+    private IEnumerable<(SpkRepositoryPackageInformation? Stable, SpkRepositoryPackageInformation Beta)> GetPackages(IEnumerable<SpkRepositorySource> sources)
     {
         var packageInformations = ReadPackageInformations(sources).Values;
-        var packagesByName =
-            from information in packageInformations
-            let package = information.Package
-            where package is not null
-            where includeBeta || !information.Beta
-            group information by package
-            into packages
-            let latestPackageVersion =
-                (from packageVersions in packages
-                 let version = packageVersions.Version
-                 where version is not null
-                 orderby version descending
-                 select packageVersions).First()
-            select latestPackageVersion;
-        return packagesByName.ToImmutableArray();
+        var packagesByName = from p in packageInformations
+                             let version = p.Version
+                             where version is not null
+                             orderby version descending 
+                             let packageName = p.Package
+                             where packageName is not null
+                             group p by packageName
+            into g
+                             select g;
+        var packageAndBeta = from p in packagesByName
+                             let firstStable = (from ps in p where !ps.Beta select ps).FirstOrDefault()
+                             let firstBeta = (from pb in p where pb.Beta select pb).FirstOrDefault()
+                             select (Stable: firstStable, Beta: firstBeta ?? firstStable);
+        return packageAndBeta.ToImmutableArray();
     }
 
     private IDictionary<string, SpkRepositoryPackageInformation> ReadPackageInformations(IEnumerable<SpkRepositorySource> sources)
@@ -149,10 +151,7 @@ public class SpkRepository
             if (packageInformation is not null)
             {
                 foreach (var thumbnailKey in packageInformation.Thumbnails.Keys)
-                {
-                    thumbnailsReferencesCount.TryGetValue(thumbnailKey, out var count);
-                    thumbnailsReferencesCount[thumbnailKey] = count + 1;
-                }
+                    thumbnailsReferencesCount[thumbnailKey] = thumbnailsReferencesCount.TryGetOrDefault(thumbnailKey) + 1;
             }
         }
 
