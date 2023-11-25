@@ -1,6 +1,6 @@
 ﻿using System.Collections.Immutable;
-using System.Runtime.Serialization.Json;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace ArxOne.Synology;
 
@@ -62,11 +62,6 @@ public class SpkRepository
         return packageInformations;
     }
 
-    private DataContractJsonSerializer GetSerializer(Type type)
-    {
-        return new DataContractJsonSerializer(type, new DataContractJsonSerializerSettings { });
-    }
-
     private string? GetCacheFilePath(SpkRepositorySource source)
     {
         var cacheDirectory = _configuration.CacheDirectory;
@@ -86,7 +81,7 @@ public class SpkRepository
         if (!File.Exists(cacheFilePath))
             return new();
         using var cacheReader = File.OpenRead(cacheFilePath);
-        return (SpkRepositoryCache)GetSerializer(typeof(SpkRepositoryCache)).ReadObject(cacheReader);
+        return JsonSerializer.Deserialize<SpkRepositoryCache>(cacheReader);
     }
 
     private void SavePackageInformations(SpkRepositorySource source, SpkRepositoryCache repositoryCache)
@@ -98,7 +93,7 @@ public class SpkRepository
         if (!Directory.Exists(cacheDirectory))
             Directory.CreateDirectory(cacheDirectory);
         using var cacheWriter = File.Create(cacheFilePath);
-        GetSerializer(typeof(SpkRepositoryCache)).WriteObject(cacheWriter, repositoryCache);
+        JsonSerializer.Serialize(cacheWriter, repositoryCache);
     }
 
     private IEnumerable<SpkRepositoryPackageInformation> ReadPackageInformations(SpkRepositorySource source)
