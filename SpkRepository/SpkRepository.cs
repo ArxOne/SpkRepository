@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.Serialization.Json;
+using System.Security.Cryptography;
 
 namespace ArxOne.Synology;
 
@@ -77,18 +78,18 @@ public class SpkRepository
         return cacheDirectory + ".json";
     }
 
-    private IReadOnlyCollection<SpkRepositoryPackageInformation> LoadPackageInformations(SpkRepositorySource source)
+    private SpkRepositoryCache LoadPackageCache(SpkRepositorySource source)
     {
         var cacheFilePath = GetCacheFilePath(source);
         if (cacheFilePath is null)
-            return Array.Empty<SpkRepositoryPackageInformation>();
+            return new();
         if (!File.Exists(cacheFilePath))
-            return Array.Empty<SpkRepositoryPackageInformation>();
+            return new();
         using var cacheReader = File.OpenRead(cacheFilePath);
-        return (SpkRepositoryPackageInformation[]?)GetSerializer(typeof(SpkRepositoryPackageInformation[])).ReadObject(cacheReader);
+        return (SpkRepositoryCache)GetSerializer(typeof(SpkRepositoryCache)).ReadObject(cacheReader);
     }
 
-    private void SavePackageInformations(SpkRepositorySource source, IReadOnlyCollection<SpkRepositoryPackageInformation> packageInformations)
+    private void SavePackageInformations(SpkRepositorySource source, SpkRepositoryCache repositoryCache)
     {
         var cacheFilePath = GetCacheFilePath(source);
         if (cacheFilePath is null)
@@ -97,39 +98,69 @@ public class SpkRepository
         if (!Directory.Exists(cacheDirectory))
             Directory.CreateDirectory(cacheDirectory);
         using var cacheWriter = File.Create(cacheFilePath);
-        GetSerializer(typeof(SpkRepositoryPackageInformation[])).WriteObject(cacheWriter, packageInformations.ToArray());
+        GetSerializer(typeof(SpkRepositoryCache)).WriteObject(cacheWriter, repositoryCache);
     }
 
     private IEnumerable<SpkRepositoryPackageInformation> ReadPackageInformations(SpkRepositorySource source)
     {
-        var packageInformations = LoadPackageInformations(source).ToDictionary(p => p.LocalPath);
+        var repositoryCache = LoadPackageCache(source);
+        var packageInformations = repositoryCache.Packages.ToDictionary(p => p.LocalPath);
+        var thumbnailsReferencesCount = repositoryCache.Thumbnails.ToDictionary(kv => kv.Key, kv => 0);
         var removedPackageInformation = packageInformations.Keys.ToHashSet();
         var spkFiles = Directory.Exists(source.SourceRelativeDirectory) ? Directory.GetFiles(source.SourceRelativeDirectory, "*.spk") : Array.Empty<string>();
         bool hasNew = false;
         foreach (var spkFile in spkFiles)
         {
-            if (packageInformations.ContainsKey(spkFile))
+            if (packageInformations.TryGetValue(spkFile, out var packageInformation))
             {
                 removedPackageInformation.Remove(spkFile);
-                continue;
             }
-            try
+            else
             {
-                using var spkStream = File.OpenRead(spkFile);
-                var (info, icons) = source.ReadPackageInfo(spkStream);
-                if (info is null)
-                    continue;
-                var packageInformation = new SpkRepositoryPackageInformation { LocalPath = spkFile, Info = info.ToDictionary(), Thumbnails = icons.ToDictionary() };
-                packageInformations[spkFile] = packageInformation;
-                hasNew = true;
+                try
+                {
+                    using var spkStream = File.OpenRead(spkFile);
+                    var (info, icons) = source.ReadPackageInfo(spkStream);
+                    if (info is null)
+                        continue;
+
+                    var thumbnailsId = icons.ToDictionary(
+                        i => Convert.ToBase64String(SHA1.HashData(i.Value)).TrimEnd('=') + ".png",
+                        kv => (Name: kv.Key, Data: kv.Value));
+                    foreach (var thumbnail in thumbnailsId)
+                        repositoryCache.Thumbnails[thumbnail.Key] = thumbnail.Value.Data;
+                    packageInformation = new SpkRepositoryPackageInformation
+                    {
+                        LocalPath = spkFile,
+                        Info = info.ToDictionary(),
+                        Thumbnails = thumbnailsId.ToDictionary(kv => kv.Value.Name, kv => kv.Key)
+                    };
+                    packageInformations[spkFile] = packageInformation;
+                    hasNew = true;
+                }
+                catch (FormatException)
+                {
+                }
             }
-            catch (FormatException)
+
+            if (packageInformation is not null)
             {
+                foreach (var thumbnailKey in packageInformation.Thumbnails.Keys)
+                {
+                    thumbnailsReferencesCount.TryGetValue(thumbnailKey, out var count);
+                    thumbnailsReferencesCount[thumbnailKey] = count + 1;
+                }
             }
         }
 
         if (hasNew || removedPackageInformation.Count > 0)
-            SavePackageInformations(source, packageInformations.Values);
+        {
+            var unusedThumbnails = thumbnailsReferencesCount.Where(kv => kv.Value == 0).Select(kv => kv.Key);
+            foreach (var unusedThumbnail in unusedThumbnails)
+                repositoryCache.Thumbnails.Remove(unusedThumbnail);
+            repositoryCache.Packages = packageInformations.Values.ToArray();
+            SavePackageInformations(source, repositoryCache);
+        }
 
         return packageInformations.Values;
     }

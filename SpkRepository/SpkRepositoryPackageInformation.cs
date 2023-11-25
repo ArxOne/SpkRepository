@@ -6,21 +6,8 @@ namespace ArxOne.Synology;
 public class SpkRepositoryPackageInformation
 {
     public Dictionary<string, object> Info { get; set; }
-    [JsonIgnore]
-    public Dictionary<string, byte[]> Thumbnails { get; set; } = new();
-    [JsonPropertyName("thumbnails")]
-
-    public Dictionary<string, string> SerializableThumbnails
-    {
-        get
-        {
-            return Thumbnails.ToDictionary(kv => kv.Key, kv => Convert.ToBase64String(kv.Value));
-        }
-        set
-        {
-            Thumbnails = value.ToDictionary(kv => kv.Key, kv => Convert.FromBase64String(kv.Value));
-        }
-    }
+  
+    public Dictionary<string, string> Thumbnails { get; set; } = new();
 
     public string LocalPath { get; set; }
     public string DownloadPath { get; set; }
