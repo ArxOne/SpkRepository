@@ -91,7 +91,14 @@ public class SpkRepository
         if (!File.Exists(cacheFilePath))
             return new();
         using var cacheReader = File.OpenRead(cacheFilePath);
-        return JsonSerializer.Deserialize<SpkRepositoryCache>(cacheReader);
+        try
+        {
+            return JsonSerializer.Deserialize<SpkRepositoryCache>(cacheReader);
+        }
+        catch
+        {
+            return new();
+        }
     }
 
     private void SavePackageInformations(SpkRepositorySource source, SpkRepositoryCache repositoryCache)
