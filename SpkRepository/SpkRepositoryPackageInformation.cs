@@ -91,8 +91,13 @@ public class SpkRepositoryPackageInformation
         OsMinVer = osMinVer;
     }
 
-    public SpkRepositoryPackage GetPackage(string? language, Uri siteRoot)
+    public SpkRepositoryPackage GetPackage(string? language, Uri siteRoot, string distributionDirectory)
     {
-        return new SpkRepositoryPackage(Info, language) { Link = new Uri(siteRoot, DownloadPath) };
+        distributionDirectory = distributionDirectory.TrimEnd('/');
+        return new SpkRepositoryPackage(Info, language)
+        {
+            Link = new Uri(siteRoot, DownloadPath),
+            Thumbnails = Thumbnails.Values.Select(t => new Uri(siteRoot, $"{distributionDirectory}/thumbnails/{t}")).ToArray(),
+        };
     }
 }

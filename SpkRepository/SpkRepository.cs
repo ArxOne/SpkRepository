@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
 using ArxOne.Synology.Utility;
@@ -17,6 +18,11 @@ public class SpkRepository
     private readonly IReadOnlyCollection<SpkRepositorySource> _sources;
     private readonly string[] _gpgPublicKeys;
 
+    private (IReadOnlyCollection<SpkRepositoryPackageInformations> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails)? _packagesAndThumbnails;
+    private (IReadOnlyCollection<SpkRepositoryPackageInformations> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) PackagesAndThumbnails => _packagesAndThumbnails ??= GetPackages(_sources);
+    private IReadOnlyCollection<SpkRepositoryPackageInformations> Packages => PackagesAndThumbnails.Packages;
+    private IReadOnlyDictionary<string, byte[]> Thumbnails => PackagesAndThumbnails.Thumbnails;
+
     public SpkRepository(SpkRepositoryConfiguration configuration, string distributionDirectory, IEnumerable<SpkRepositorySource> sources, params string[] gpgPublicKeyPaths)
     {
         DistributionDirectory = distributionDirectory;
@@ -25,26 +31,30 @@ public class SpkRepository
         _gpgPublicKeys = gpgPublicKeyPaths.Select(s => File.ReadAllText(s).Replace("\r", "")).ToArray();
     }
 
-    public IEnumerable<(string Path, Delegate? Handler)> GetRoutes()
+    public IEnumerable<(string Path, Delegate? Handler)> GetRoutes(Func<byte[], object> getPng)
     {
-        var packages = GetPackages(_sources);
-        yield return (DistributionDirectory, delegate(string unique, string? language, string? package_update_channel, int major)
+        yield return (DistributionDirectory, delegate (string unique, string? language, string? package_update_channel, int major)
                 {
                     var siteRoot = _configuration.SiteRoot;
                     var beta = string.Equals(package_update_channel, "beta", StringComparison.InvariantCultureIgnoreCase);
                     return new Dictionary<string, object>
                     {
-                        { "packages", packages.Select(p => p.Get(beta, major)?.GetPackage(language, siteRoot)).Where(p => p is not null) },
+                        { "packages", Packages.Select(p => p.Get(beta, major)?.GetPackage(language, siteRoot, DistributionDirectory)).Where(p => p is not null) },
                         { "keyrings", _gpgPublicKeys }
                     };
+                }
+        );
+        yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}", delegate(string thumbnail)
+                {
+                    return getPng(Thumbnails.TryGetOrDefault(thumbnail));
                 }
             );
     }
 
-    private IEnumerable<SpkRepositoryPackageInformations> GetPackages(IEnumerable<SpkRepositorySource> sources)
+    private (IReadOnlyCollection<SpkRepositoryPackageInformations> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) GetPackages(IEnumerable<SpkRepositorySource> sources)
     {
-        var packageInformations = ReadPackageInformations(sources).Values;
-        var packagesByName = from p in packageInformations
+        var (packageInformations, thumbnails) = ReadPackageInformations(sources);
+        var packagesByName = from p in packageInformations.Values
                              let version = p.Version
                              where version is not null
                              orderby version descending
@@ -53,19 +63,22 @@ public class SpkRepository
                              group p by packageName
             into g
                              select g;
-        return packagesByName.Select(p => new SpkRepositoryPackageInformations(p));
+        return (packagesByName.Select(p => new SpkRepositoryPackageInformations(p)).ToImmutableArray(), thumbnails);
     }
 
-    private IDictionary<string, SpkRepositoryPackageInformation> ReadPackageInformations(IEnumerable<SpkRepositorySource> sources)
+    private (IDictionary<string, SpkRepositoryPackageInformation> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) ReadPackageInformations(IEnumerable<SpkRepositorySource> sources)
     {
         var packageInformations = new Dictionary<string, SpkRepositoryPackageInformation>();
+        var thumbnails = new Dictionary<string, byte[]>();
         foreach (var source in sources)
         {
-            var sourcePackageInformations = ReadPackageInformations(source);
+            var (sourcePackageInformations, sourceThumbnails) = ReadPackageInformations(source);
             foreach (var sourcePackageInformation in sourcePackageInformations)
                 packageInformations[sourcePackageInformation.LocalPath] = sourcePackageInformation;
+            foreach (var sourceThumbnail in sourceThumbnails)
+                thumbnails[sourceThumbnail.Key] = sourceThumbnail.Value;
         }
-        return packageInformations;
+        return (packageInformations, thumbnails);
     }
 
     private string? GetCacheFilePath(SpkRepositorySource source)
@@ -109,11 +122,11 @@ public class SpkRepository
         JsonSerializer.Serialize(cacheWriter, repositoryCache);
     }
 
-    private IEnumerable<SpkRepositoryPackageInformation> ReadPackageInformations(SpkRepositorySource source)
+    private (IEnumerable<SpkRepositoryPackageInformation> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) ReadPackageInformations(SpkRepositorySource source)
     {
         var repositoryCache = LoadPackageCache(source);
         var packageInformations = repositoryCache.Packages.ToDictionary(p => p.LocalPath);
-        var thumbnailsReferencesCount = repositoryCache.Thumbnails.ToDictionary(kv => kv.Key, kv => 0);
+        var thumbnailsReferencesCount = repositoryCache.Thumbnails.ToDictionary(kv => kv.Key, _ => 0);
         var removedPackagesInformation = packageInformations.Keys.ToHashSet();
         var spkFiles = Directory.Exists(source.SourceRelativeDirectory) ? Directory.GetFiles(source.SourceRelativeDirectory, "*.spk") : Array.Empty<string>();
         bool hasNew = false;
@@ -136,7 +149,7 @@ public class SpkRepository
                         continue;
 
                     var thumbnailsId = icons.ToDictionary(
-                        i => Convert.ToHexString(MD5.HashData(i.Value)) + ".png",
+                        i => Convert.ToHexString(MD5.HashData(i.Value)).ToLower() + ".png",
                         kv => (Name: kv.Key, Data: kv.Value));
                     foreach (var thumbnail in thumbnailsId)
                         repositoryCache.Thumbnails[thumbnail.Key] = thumbnail.Value.Data;
@@ -175,7 +188,7 @@ public class SpkRepository
             SavePackageInformations(source, repositoryCache);
         }
 
-        return packageInformations.Values;
+        return (repositoryCache.Packages, repositoryCache.Thumbnails);
     }
 
     private static string[] GetPathParts(string s) => s.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
