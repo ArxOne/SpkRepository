@@ -6,21 +6,20 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using ArxOne.Synology.Utility;
-using Microsoft.VisualBasic.CompilerServices;
 
 namespace ArxOne.Synology;
 
 public class SpkRepository
 {
-    public string WebRoot { get; }
+    public string DistributionDirectory { get; }
 
     private readonly SpkRepositoryConfiguration _configuration;
     private readonly IReadOnlyCollection<SpkRepositorySource> _sources;
     private readonly string[] _gpgPublicKeys;
 
-    public SpkRepository(SpkRepositoryConfiguration configuration, string webRoot, IEnumerable<SpkRepositorySource> sources, params string[] gpgPublicKeyPaths)
+    public SpkRepository(SpkRepositoryConfiguration configuration, string distributionDirectory, IEnumerable<SpkRepositorySource> sources, params string[] gpgPublicKeyPaths)
     {
-        WebRoot = webRoot;
+        DistributionDirectory = distributionDirectory;
         _configuration = configuration;
         _sources = sources.ToImmutableArray();
         _gpgPublicKeys = gpgPublicKeyPaths.Select(s => File.ReadAllText(s).Replace("\r", "")).ToArray();
@@ -29,35 +28,32 @@ public class SpkRepository
     public IEnumerable<(string Path, Delegate? Handler)> GetRoutes()
     {
         var packages = GetPackages(_sources);
-        yield return (WebRoot, delegate (string unique, string? language, string? package_update_channel)
+        yield return (DistributionDirectory, delegate(string unique, string? language, string? package_update_channel, int major)
                 {
+                    var siteRoot = _configuration.SiteRoot;
                     var beta = string.Equals(package_update_channel, "beta", StringComparison.InvariantCultureIgnoreCase);
                     return new Dictionary<string, object>
                     {
-                        {"packages", packages.Select(p => (beta ? p.Beta : p.Stable)?.GetPackage(language)).Where(p => p is not null)},
-                        {"keyrings", _gpgPublicKeys}
+                        { "packages", packages.Select(p => p.Get(beta, major)?.GetPackage(language, siteRoot)).Where(p => p is not null) },
+                        { "keyrings", _gpgPublicKeys }
                     };
                 }
-        );
+            );
     }
 
-    private IEnumerable<(SpkRepositoryPackageInformation? Stable, SpkRepositoryPackageInformation Beta)> GetPackages(IEnumerable<SpkRepositorySource> sources)
+    private IEnumerable<SpkRepositoryPackageInformations> GetPackages(IEnumerable<SpkRepositorySource> sources)
     {
         var packageInformations = ReadPackageInformations(sources).Values;
         var packagesByName = from p in packageInformations
                              let version = p.Version
                              where version is not null
-                             orderby version descending 
+                             orderby version descending
                              let packageName = p.Package
                              where packageName is not null
                              group p by packageName
             into g
                              select g;
-        var packageAndBeta = from p in packagesByName
-                             let firstStable = (from ps in p where !ps.Beta select ps).FirstOrDefault()
-                             let firstBeta = (from pb in p where pb.Beta select pb).FirstOrDefault()
-                             select (Stable: firstStable, Beta: firstBeta ?? firstStable);
-        return packageAndBeta.ToImmutableArray();
+        return packagesByName.Select(p => new SpkRepositoryPackageInformations(p));
     }
 
     private IDictionary<string, SpkRepositoryPackageInformation> ReadPackageInformations(IEnumerable<SpkRepositorySource> sources)
@@ -118,14 +114,14 @@ public class SpkRepository
         var repositoryCache = LoadPackageCache(source);
         var packageInformations = repositoryCache.Packages.ToDictionary(p => p.LocalPath);
         var thumbnailsReferencesCount = repositoryCache.Thumbnails.ToDictionary(kv => kv.Key, kv => 0);
-        var removedPackageInformation = packageInformations.Keys.ToHashSet();
+        var removedPackagesInformation = packageInformations.Keys.ToHashSet();
         var spkFiles = Directory.Exists(source.SourceRelativeDirectory) ? Directory.GetFiles(source.SourceRelativeDirectory, "*.spk") : Array.Empty<string>();
         bool hasNew = false;
         foreach (var spkFile in spkFiles)
         {
             if (packageInformations.TryGetValue(spkFile, out var packageInformation))
             {
-                removedPackageInformation.Remove(spkFile);
+                removedPackagesInformation.Remove(spkFile);
             }
             else
             {
@@ -135,15 +131,21 @@ public class SpkRepository
                     var (info, icons) = source.ReadPackageInfo(spkStream);
                     if (info is null)
                         continue;
+                    var osMinVer = info.TryGetOrDefault("os_min_ver") as string ?? info.TryGetOrDefault("firmware") as string;
+                    if (osMinVer is null)
+                        continue;
 
                     var thumbnailsId = icons.ToDictionary(
                         i => Convert.ToHexString(MD5.HashData(i.Value)) + ".png",
                         kv => (Name: kv.Key, Data: kv.Value));
                     foreach (var thumbnail in thumbnailsId)
                         repositoryCache.Thumbnails[thumbnail.Key] = thumbnail.Value.Data;
-                    packageInformation = new SpkRepositoryPackageInformation
+                    packageInformation = new SpkRepositoryPackageInformation(
+                        spkFile,
+                        "/" + GetPath(GetPathParts(spkFile).Skip(GetPathParts(_configuration.StorageRoot).Length), '/'),
+                        osMinVer
+                        )
                     {
-                        LocalPath = spkFile,
                         Info = info.ToDictionary(),
                         Thumbnails = thumbnailsId.ToDictionary(kv => kv.Value.Name, kv => kv.Key)
                     };
@@ -162,15 +164,20 @@ public class SpkRepository
             }
         }
 
-        if (hasNew || removedPackageInformation.Count > 0)
+        if (hasNew || removedPackagesInformation.Count > 0)
         {
             var unusedThumbnails = thumbnailsReferencesCount.Where(kv => kv.Value == 0).Select(kv => kv.Key);
             foreach (var unusedThumbnail in unusedThumbnails)
                 repositoryCache.Thumbnails.Remove(unusedThumbnail);
+            foreach (var removedPackageInformation in removedPackagesInformation)
+                packageInformations.Remove(removedPackageInformation);
             repositoryCache.Packages = packageInformations.Values.ToArray();
             SavePackageInformations(source, repositoryCache);
         }
 
         return packageInformations.Values;
     }
+
+    private static string[] GetPathParts(string s) => s.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private static string GetPath(IEnumerable<string> s, char separator) => string.Join(separator, s);
 }

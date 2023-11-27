@@ -45,6 +45,9 @@ public class SpkRepositoryPackageInformation
 
     public string LocalPath { get; set; }
     public string DownloadPath { get; set; }
+    public string OsMinVer { get; }
+
+    public SpkVersion? OsMinimumVersion => SpkVersion.TryParse(OsMinVer);
 
     public string? Package
     {
@@ -81,8 +84,15 @@ public class SpkRepositoryPackageInformation
         }
     }
 
-    public SpkRepositoryPackage GetPackage(string? language)
+    public SpkRepositoryPackageInformation(string localPath, string downloadPath, string osMinVer)
     {
-        return new SpkRepositoryPackage(Info, language);
+        LocalPath = localPath;
+        DownloadPath = downloadPath;
+        OsMinVer = osMinVer;
+    }
+
+    public SpkRepositoryPackage GetPackage(string? language, Uri siteRoot)
+    {
+        return new SpkRepositoryPackage(Info, language) { Link = new Uri(siteRoot, DownloadPath) };
     }
 }

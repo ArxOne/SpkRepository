@@ -13,7 +13,6 @@ public class SpkRepositoryPackage
 
     [JsonPropertyName("package")] public string Package { get; set; }
     [JsonPropertyName("version")] public string Version { get; set; }
-    [JsonPropertyName("beta")] public bool Beta { get; set; }
     [JsonPropertyName("dname")] public string DisplayName { get; set; }
     [JsonPropertyName("desc")] public string Description { get; set; }
     [JsonPropertyName("maintainer")] public string Maintainer { get; set; }
@@ -55,7 +54,6 @@ public class SpkRepositoryPackage
     {
         Package = TryGet<string>(info, "package")!;
         Version = TryGet<string>(info, "version")!;
-        Beta = TryGet<bool?>(info, "beta") ?? false;
         DisplayName = TryGetLanguage<string>(info, "displayname", language) ?? Package;
         Description = TryGetLanguage<string>(info, "description", language) ?? "";
         QStart = TryGet<bool?>(info, "qstart") ?? true;
