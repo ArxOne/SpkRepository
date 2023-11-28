@@ -31,6 +31,13 @@ public class SpkRepository
         _gpgPublicKeys = gpgPublicKeyPaths.Select(s => File.ReadAllText(s).Replace("\r", "")).ToArray();
     }
 
+    public void Reload()
+    {
+        foreach (var source in _sources)
+            source.Cache = null;
+        _packagesAndThumbnails = null;
+    }
+    
     public IEnumerable<(string Path, Delegate? Handler)> GetRoutes(Func<byte[], object> getPng)
     {
         yield return (DistributionDirectory, delegate (string unique, string? language, string? package_update_channel, int major)
@@ -94,6 +101,8 @@ public class SpkRepository
 
     private SpkRepositoryCache LoadPackageCache(SpkRepositorySource source)
     {
+        if (source.Cache is not null)
+            return source.Cache;
         var cacheFilePath = GetCacheFilePath(source);
         if (cacheFilePath is null)
             return new();
@@ -110,8 +119,9 @@ public class SpkRepository
         }
     }
 
-    private void SavePackageInformations(SpkRepositorySource source, SpkRepositoryCache repositoryCache)
+    private void SavePackageCache(SpkRepositorySource source, SpkRepositoryCache repositoryCache)
     {
+        source.Cache = repositoryCache;
         var cacheFilePath = GetCacheFilePath(source);
         if (cacheFilePath is null)
             return;
@@ -185,7 +195,7 @@ public class SpkRepository
             foreach (var removedPackageInformation in removedPackagesInformation)
                 packageInformations.Remove(removedPackageInformation);
             repositoryCache.Packages = packageInformations.Values.ToArray();
-            SavePackageInformations(source, repositoryCache);
+            SavePackageCache(source, repositoryCache);
         }
 
         return (repositoryCache.Packages, repositoryCache.Thumbnails);
