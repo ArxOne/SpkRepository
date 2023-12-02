@@ -104,6 +104,7 @@ public class SpkRepository
         if (source.Cache is not null)
             return source.Cache;
         var cacheFilePath = GetCacheFilePath(source);
+        Console.WriteLine($"SPK cache is located at {cacheFilePath}");
         if (cacheFilePath is null)
             return new();
         if (!File.Exists(cacheFilePath))
