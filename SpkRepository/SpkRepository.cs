@@ -40,6 +40,7 @@ public class SpkRepository
     
     public IEnumerable<(string Path, Delegate? Handler)> GetRoutes(Func<byte[], object> getPng)
     {
+        Console.WriteLine($"{Packages.Count} SPK packages");
         yield return (DistributionDirectory, delegate (string unique, string? language, string? package_update_channel, int major)
                 {
                     var siteRoot = _configuration.SiteRoot;
