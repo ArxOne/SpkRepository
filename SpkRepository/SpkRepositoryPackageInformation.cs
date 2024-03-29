@@ -1,14 +1,19 @@
 ﻿
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace ArxOne.Synology;
 
-public class SpkRepositoryPackageInformation
+public partial class SpkRepositoryPackageInformation
 {
+    [GeneratedRegex(@"\[([^\[\]]+)\]")]
+    private static partial Regex ArchitecturesRegex();
+
     [JsonIgnore]
     public Dictionary<string, object?> Info { get; set; }
 
@@ -48,6 +53,8 @@ public class SpkRepositoryPackageInformation
     public string OsMinVer { get; }
 
     public SpkVersion? OsMinimumVersion => SpkVersion.TryParse(OsMinVer);
+
+    public string[] Architectures { get; set; }
 
     public string? Package
     {
@@ -89,6 +96,23 @@ public class SpkRepositoryPackageInformation
         LocalPath = localPath;
         DownloadPath = downloadPath;
         OsMinVer = osMinVer;
+        Architectures = GetArchitectures();
+    }
+
+    private string[] GetArchitectures()
+    {
+        var filename = Path.GetFileName(LocalPath);
+        if (filename.Contains("noarch"))
+        {
+            return ["noarch"];
+        }
+        var match = ArchitecturesRegex().Match(filename);
+
+        if (!match.Success)
+            return [];
+
+        var platformsString = match.Groups[1].Value;
+        return platformsString.Split('-');
     }
 
     public SpkRepositoryPackage GetPackage(string? language, Uri siteRoot, string distributionDirectory)
@@ -101,3 +125,4 @@ public class SpkRepositoryPackageInformation
         };
     }
 }
+ 

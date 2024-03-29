@@ -41,13 +41,14 @@ public class SpkRepository
     public IEnumerable<(string Path, Delegate? Handler)> GetRoutes(Func<byte[], object> getPng)
     {
         Console.WriteLine($"{Packages.Count} SPK packages");
-        yield return (DistributionDirectory, delegate (string unique, string? language, string? package_update_channel, int major)
+        yield return (DistributionDirectory, delegate (string unique, string? language, string? package_update_channel, int major, string arch)
                 {
                     var siteRoot = _configuration.SiteRoot;
                     var beta = string.Equals(package_update_channel, "beta", StringComparison.InvariantCultureIgnoreCase);
+                    var spkRepositoryPackages = Packages.Select(p => p.Get(beta, major, arch)?.GetPackage(language, siteRoot, DistributionDirectory)).Where(p => p is not null);
                     return new Dictionary<string, object>
                     {
-                        { "packages", Packages.Select(p => p.Get(beta, major)?.GetPackage(language, siteRoot, DistributionDirectory)).Where(p => p is not null) },
+                        { "packages", spkRepositoryPackages },
                         { "keyrings", _gpgPublicKeys }
                     };
                 }
@@ -71,7 +72,7 @@ public class SpkRepository
                              group p by packageName
             into g
                              select g;
-        return (packagesByName.Select(p => new SpkRepositoryPackageInformations(p)).ToImmutableArray(), thumbnails);
+        return (packagesByName.Select(p => new SpkRepositoryPackageInformations(p.ToImmutableArray())).ToImmutableArray(), thumbnails);
     }
 
     private (IDictionary<string, SpkRepositoryPackageInformation> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) ReadPackageInformations(IEnumerable<SpkRepositorySource> sources)
