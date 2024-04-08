@@ -52,18 +52,15 @@ public class SpkRepository
                     };
                 }
         );
-        yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}", delegate (string thumbnail)
-        {
-            var tryGetOrDefault = Thumbnails.TryGetOrDefault(thumbnail);
-            if (tryGetOrDefault is not null)
-                return getPng(tryGetOrDefault);
-        }
-        );
+        yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}", delegate (string thumbnail) {
+            var thumbnailData = Thumbnails.TryGetOrDefault(thumbnail);
+            return thumbnailData is not null ? getPng(thumbnailData) : () => { };
+        });
     }
 
     private (IReadOnlyCollection<SpkRepositoryPackageInformations> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) GetPackages(IEnumerable<SpkRepositorySource> sources)
     {
-        var (packageInformations, thumbnails) = ReadPackageInformations(sources);
+        var (packageInformations, thumbnails) = ReadPackages(sources);
         var packagesByName = from p in packageInformations.Values
                              let version = p.Version
                              where version is not null
@@ -76,7 +73,7 @@ public class SpkRepository
         return (packagesByName.Select(p => new SpkRepositoryPackageInformations(p.ToImmutableArray())).ToImmutableArray(), thumbnails);
     }
 
-    private (IDictionary<string, SpkRepositoryPackageInformation> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) ReadPackageInformations(IEnumerable<SpkRepositorySource> sources)
+    private (IDictionary<string, SpkRepositoryPackageInformation> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) ReadPackages(IEnumerable<SpkRepositorySource> sources)
     {
         var packageInformations = new Dictionary<string, SpkRepositoryPackageInformation>();
         var thumbnails = new Dictionary<string, byte[]>();
