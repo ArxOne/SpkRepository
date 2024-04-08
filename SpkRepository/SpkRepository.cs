@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
 using ArxOne.Synology.Utility;
@@ -54,9 +53,11 @@ public class SpkRepository
                 }
         );
         yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}", delegate (string thumbnail)
-                {
-                    return getPng(Thumbnails.TryGetOrDefault(thumbnail));
-                }
+        {
+            var tryGetOrDefault = Thumbnails.TryGetOrDefault(thumbnail);
+            if (tryGetOrDefault is not null)
+                return getPng(tryGetOrDefault);
+        }
         );
     }
 
@@ -108,17 +109,17 @@ public class SpkRepository
         var cacheFilePath = GetCacheFilePath(source);
         Console.WriteLine($"SPK cache is located at {cacheFilePath}");
         if (cacheFilePath is null)
-            return new();
+            return new SpkRepositoryCache();
         if (!File.Exists(cacheFilePath))
-            return new();
+            return new SpkRepositoryCache();
         using var cacheReader = File.OpenRead(cacheFilePath);
         try
         {
-            return JsonSerializer.Deserialize<SpkRepositoryCache>(cacheReader);
+            return JsonSerializer.Deserialize<SpkRepositoryCache>(cacheReader) ?? new SpkRepositoryCache();
         }
         catch
         {
-            return new();
+            return new SpkRepositoryCache();
         }
     }
 
@@ -129,7 +130,7 @@ public class SpkRepository
         if (cacheFilePath is null)
             return;
         var cacheDirectory = Path.GetDirectoryName(cacheFilePath);
-        if (!Directory.Exists(cacheDirectory))
+        if (cacheDirectory is not null && !Directory.Exists(cacheDirectory))
             Directory.CreateDirectory(cacheDirectory);
         using var cacheWriter = File.Create(cacheFilePath);
         JsonSerializer.Serialize(cacheWriter, repositoryCache);
