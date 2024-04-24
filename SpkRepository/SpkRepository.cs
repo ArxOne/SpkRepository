@@ -55,7 +55,8 @@ public class SpkRepository
         yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}", delegate (string thumbnail)
         {
             return getPng(Thumbnails.TryGetOrDefault(thumbnail));
-        });
+        }
+        );
     }
 
     private (IReadOnlyCollection<SpkRepositoryPackageInformations> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) GetPackages(IEnumerable<SpkRepositorySource> sources)
@@ -139,85 +140,67 @@ public class SpkRepository
         var packageInformations = repositoryCache.Packages.ToDictionary(p => p.LocalPath);
         var thumbnailsReferencesCount = repositoryCache.Thumbnails.ToDictionary(kv => kv.Key, _ => 0);
         var removedPackagesInformation = packageInformations.Keys.ToHashSet();
-        var spkFiles = Directory.Exists(source.SourceRelativeDirectory) ? Directory.GetFiles(source.SourceRelativeDirectory, "*.spk") : [];
-        var hasNew = FetchSpkInformations(source, spkFiles, packageInformations, removedPackagesInformation, repositoryCache, thumbnailsReferencesCount);
-
-        SaveOrRemoveInformations(source, hasNew, removedPackagesInformation, thumbnailsReferencesCount, repositoryCache, packageInformations);
-
-        return (repositoryCache.Packages, repositoryCache.Thumbnails);
-    }
-
-    private bool FetchSpkInformations(SpkRepositorySource source, IEnumerable<string> spkFiles, IDictionary<string, SpkRepositoryPackageInformation> packageInformations,
-        ICollection<string> removedPackagesInformation, SpkRepositoryCache repositoryCache, Dictionary<string, int> thumbnailsReferencesCount)
-    {
-        var hasNew = false;
+        var spkFiles = Directory.Exists(source.SourceRelativeDirectory) ? Directory.GetFiles(source.SourceRelativeDirectory, "*.spk") : Array.Empty<string>();
+        bool hasNew = false;
         foreach (var spkFile in spkFiles)
         {
             if (packageInformations.TryGetValue(spkFile, out var packageInformation))
+            {
                 removedPackagesInformation.Remove(spkFile);
+            }
             else
             {
-                if (ReadSpkFile(source, spkFile, repositoryCache, packageInformations, ref packageInformation, ref hasNew))
-                    continue;
+                try
+                {
+                    using var spkStream = File.OpenRead(spkFile);
+                    var (info, icons) = source.ReadPackageInfo(spkStream);
+                    if (info is null)
+                        continue;
+                    var osMinVer = info.TryGetOrDefault("os_min_ver") as string ?? info.TryGetOrDefault("firmware") as string;
+                    if (osMinVer is null)
+                        continue;
+
+                    var thumbnailsId = icons.ToDictionary(
+                        i => Convert.ToHexString(MD5.HashData(i.Value)).ToLower() + ".png",
+                        kv => (Name: kv.Key, Data: kv.Value));
+                    foreach (var thumbnail in thumbnailsId)
+                        repositoryCache.Thumbnails[thumbnail.Key] = thumbnail.Value.Data;
+                    packageInformation = new SpkRepositoryPackageInformation(
+                        spkFile,
+                        "/" + GetPath(GetPathParts(spkFile).Skip(GetPathParts(_configuration.StorageRoot).Length), '/'),
+                        osMinVer
+                        )
+                    {
+                        Info = info.ToDictionary(),
+                        Thumbnails = thumbnailsId.ToDictionary(kv => kv.Value.Name, kv => kv.Key)
+                    };
+                    packageInformations[spkFile] = packageInformation;
+                    hasNew = true;
+                }
+                catch (FormatException)
+                {
+                }
             }
 
-            if (packageInformation is null)
-                continue;
-            foreach (var thumbnailKey in packageInformation.Thumbnails.Keys)
-                thumbnailsReferencesCount[thumbnailKey] = thumbnailsReferencesCount.TryGetOrDefault(thumbnailKey) + 1;
-        }
-        return hasNew;
-    }
-
-    private void SaveOrRemoveInformations(SpkRepositorySource source, bool hasNew, HashSet<string> removedPackagesInformation, Dictionary<string, int> thumbnailsReferencesCount,
-        SpkRepositoryCache repositoryCache, Dictionary<string, SpkRepositoryPackageInformation> packageInformations)
-    {
-        if (!hasNew && removedPackagesInformation.Count <= 0)
-            return;
-        var unusedThumbnails = thumbnailsReferencesCount.Where(kv => kv.Value == 0).Select(kv => kv.Key);
-        foreach (var unusedThumbnail in unusedThumbnails)
-            repositoryCache.Thumbnails.Remove(unusedThumbnail);
-        foreach (var removedPackageInformation in removedPackagesInformation)
-            packageInformations.Remove(removedPackageInformation);
-        repositoryCache.Packages = packageInformations.Values.ToArray();
-        SavePackageCache(source, repositoryCache);
-    }
-
-    private bool ReadSpkFile(SpkRepositorySource source, string spkFile, SpkRepositoryCache repositoryCache, IDictionary<string,
-            SpkRepositoryPackageInformation> packageInformations, ref SpkRepositoryPackageInformation? packageInformation, ref bool hasNew)
-    {
-        try
-        {
-            using var spkStream = File.OpenRead(spkFile);
-            var (info, icons) = source.ReadPackageInfo(spkStream);
-            if (info is null)
-                return true;
-            var osMinVer = info.TryGetOrDefault("os_min_ver") as string ?? info.TryGetOrDefault("firmware") as string;
-            if (osMinVer is null)
-                return true;
-
-            var thumbnailsId = icons.ToDictionary(
-                i => Convert.ToHexString(MD5.HashData(i.Value)).ToLower() + ".png",
-                kv => (Name: kv.Key, Data: kv.Value));
-            foreach (var thumbnail in thumbnailsId)
-                repositoryCache.Thumbnails[thumbnail.Key] = thumbnail.Value.Data;
-            packageInformation = new SpkRepositoryPackageInformation(
-                spkFile,
-                "/" + GetPath(GetPathParts(spkFile).Skip(GetPathParts(_configuration.StorageRoot).Length), '/'),
-                osMinVer
-            )
+            if (packageInformation is not null)
             {
-                Info = info.ToDictionary(),
-                Thumbnails = thumbnailsId.ToDictionary(kv => kv.Value.Name, kv => kv.Key)
-            };
-            packageInformations[spkFile] = packageInformation;
-            hasNew = true;
-        }
-        catch (FormatException)
-        {
+                foreach (var thumbnailKey in packageInformation.Thumbnails.Keys)
+                    thumbnailsReferencesCount[thumbnailKey] = thumbnailsReferencesCount.TryGetOrDefault(thumbnailKey) + 1;
+            }
         }
 
-        return false;
+        if (hasNew || removedPackagesInformation.Count > 0)
+        {
+            var unusedThumbnails = thumbnailsReferencesCount.Where(kv => kv.Value == 0).Select(kv => kv.Key);
+            foreach (var unusedThumbnail in unusedThumbnails)
+                repositoryCache.Thumbnails.Remove(unusedThumbnail);
+            foreach (var removedPackageInformation in removedPackagesInformation)
+                packageInformations.Remove(removedPackageInformation);
+            repositoryCache.Packages = packageInformations.Values.ToArray();
+            SavePackageCache(source, repositoryCache);
+        }
+
+        return (repositoryCache.Packages, repositoryCache.Thumbnails);
     }
 
     private static string[] GetPathParts(string s) => s.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
