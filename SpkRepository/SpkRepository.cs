@@ -52,9 +52,11 @@ public class SpkRepository
                     };
                 }
         );
-        yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}", delegate (string thumbnail) {
-            var thumbnailData = Thumbnails.TryGetOrDefault(thumbnail);
-            return thumbnailData is not null ? getPng(thumbnailData) : () => { };
+        yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}", delegate (string thumbnail)
+        {
+            var tryGetOrDefault = Thumbnails.TryGetOrDefault(thumbnail);
+            if (tryGetOrDefault is not null)
+                return getPng(tryGetOrDefault);
         });
     }
 
