@@ -54,9 +54,7 @@ public class SpkRepository
         );
         yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}", delegate (string thumbnail)
         {
-            var tryGetOrDefault = Thumbnails.TryGetOrDefault(thumbnail);
-            if (tryGetOrDefault is not null)
-                return getPng(tryGetOrDefault);
+            return getPng(Thumbnails.TryGetOrDefault(thumbnail));
         });
     }
 
