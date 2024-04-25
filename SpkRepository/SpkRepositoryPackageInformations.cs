@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using ArxOne.Synology.Utility;
-using Microsoft.VisualBasic;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ArxOne.Synology;
 
@@ -19,30 +17,13 @@ public class SpkRepositoryPackageInformations
     {
         // VERY suboptimal, TODO rewrite
         var packageInformationsArray = packageInformations.OrderByDescending(p => p.Version).ToImmutableArray();
-        foreach (var spkRepositoryPackageInformation in packageInformationsArray)
-        {
-            var join = spkRepositoryPackageInformation?.Architectures is not null ? string.Join(" - ", spkRepositoryPackageInformation.Architectures) : "";
-            Console.WriteLine($" Discover Package : beta={spkRepositoryPackageInformation?.Beta}; majorVersion={spkRepositoryPackageInformation?.OsMinVer}; arch={join}");
-        }
         var osMajors = packageInformationsArray.Select(i => i.OsMinimumVersion.Feature.Major).Distinct();
         _architectures = packageInformations.SelectMany(x => x.Architectures).Distinct().ToImmutableArray();
 
         foreach (var architecture in _architectures)
-        {
             foreach (var beta in new[] { false, true })
-            {
                 foreach (var osMajor in osMajors)
-                {
-                    Console.WriteLine($" Insert in informations - Key = beta={beta}; osMajor={osMajor}; arch={architecture}");
-                    var spkRepositoryPackageInformation = packageInformationsArray.FirstOrDefault(p => (beta || !p.Beta) && p.OsMinimumVersion.Feature.Major == osMajor);
-                    var join = spkRepositoryPackageInformation?.Architectures is not null ? string.Join(" - ", spkRepositoryPackageInformation.Architectures) : "";
-                    Console.WriteLine($" Insert in informations - Value = beta={spkRepositoryPackageInformation?.Beta}; majorVersion={spkRepositoryPackageInformation?.OsMinVer}; arch={join}");
-                    _informations[new SpkRepositoryPackageInformationKey(beta, osMajor, architecture)] = spkRepositoryPackageInformation;
-                }
-            }
-        }
-
-
+                    _informations[new SpkRepositoryPackageInformationKey(beta, osMajor, architecture)] = packageInformationsArray.FirstOrDefault(p => (beta || !p.Beta) && p.OsMinimumVersion.Feature.Major == osMajor && p.Architectures.Contains(architecture));
     }
 
     public SpkRepositoryPackageInformation? Get(bool beta, int majorVersion, string architecture)
