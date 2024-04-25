@@ -182,11 +182,10 @@ public class SpkRepository
                 }
             }
 
-            if (packageInformation is not null)
-            {
-                foreach (var thumbnailKey in packageInformation.Thumbnails.Keys)
-                    thumbnailsReferencesCount[thumbnailKey] = thumbnailsReferencesCount.TryGetOrDefault(thumbnailKey) + 1;
-            }
+            if (packageInformation is null) 
+                continue;
+            foreach (var thumbnailKey in packageInformation.Thumbnails.Keys)
+                thumbnailsReferencesCount[thumbnailKey] = thumbnailsReferencesCount.TryGetOrDefault(thumbnailKey) + 1;
         }
 
         if (hasNew || removedPackagesInformation.Count > 0)

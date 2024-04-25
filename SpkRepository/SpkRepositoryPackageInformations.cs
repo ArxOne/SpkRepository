@@ -30,11 +30,7 @@ public class SpkRepositoryPackageInformations
     {
         if (_architectures.Count == 1 && _architectures.Contains(NoArchitecture, StringComparer.CurrentCultureIgnoreCase))
             architecture = NoArchitecture;
-        Console.WriteLine($" Get SpkRepositoryPackageInformation : beta={beta}; majorVersion={majorVersion}; arch={architecture}");
         var key = new SpkRepositoryPackageInformationKey(beta, Math.Min(7, majorVersion), architecture);
-        var information = _informations.TryGetOrDefault(key);
-        var join = information?.Architectures is not null ? string.Join(" - ", information.Architectures) : "";
-        Console.WriteLine($"Return SpkRepositoryPackageInformation : beta={information?.Beta}; majorVersion={information?.OsMinVer}; arch={join}");
-        return information;
+        return _informations.TryGetOrDefault(key);
     }
 }
