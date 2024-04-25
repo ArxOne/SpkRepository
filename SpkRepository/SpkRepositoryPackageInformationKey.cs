@@ -17,7 +17,7 @@ public class SpkRepositoryPackageInformationKey(bool beta, int major, string arc
 
     private bool Equals(SpkRepositoryPackageInformationKey obj)
     {
-        return Beta == obj.Beta && Major == obj.Major && Architecture.Equals(obj.Architecture);
+        return Beta == obj.Beta && Major == obj.Major && Architecture.Equals(obj.Architecture, StringComparison.OrdinalIgnoreCase);
     }
 
     public override int GetHashCode()
