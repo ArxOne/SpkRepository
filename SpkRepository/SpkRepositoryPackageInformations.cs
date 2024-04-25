@@ -19,6 +19,11 @@ public class SpkRepositoryPackageInformations
     {
         // VERY suboptimal, TODO rewrite
         var packageInformationsArray = packageInformations.OrderByDescending(p => p.Version).ToImmutableArray();
+        foreach (var spkRepositoryPackageInformation in packageInformationsArray)
+        {
+            var join = spkRepositoryPackageInformation?.Architectures is not null ? string.Join(" - ", spkRepositoryPackageInformation.Architectures) : "";
+            Console.WriteLine($" Discover Package : beta={spkRepositoryPackageInformation?.Beta}; majorVersion={spkRepositoryPackageInformation?.OsMinVer}; arch={join}");
+        }
         var osMajors = packageInformationsArray.Select(i => i.OsMinimumVersion.Feature.Major).Distinct();
         _architectures = packageInformations.SelectMany(x => x.Architectures).Distinct().ToImmutableArray();
 
