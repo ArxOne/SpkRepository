@@ -140,7 +140,7 @@ public class SpkRepository
         var packageInformations = repositoryCache.Packages.ToDictionary(p => p.LocalPath);
         var thumbnailsReferencesCount = repositoryCache.Thumbnails.ToDictionary(kv => kv.Key, _ => 0);
         var removedPackagesInformation = packageInformations.Keys.ToHashSet();
-        var spkFiles = Directory.Exists(source.SourceRelativeDirectory) ? Directory.GetFiles(source.SourceRelativeDirectory, "*.spk") : Array.Empty<string>();
+        var spkFiles = Directory.Exists(source.SourceRelativeDirectory) ? Directory.GetFiles(source.SourceRelativeDirectory, "*.spk") : [];
         bool hasNew = false;
         foreach (var spkFile in spkFiles)
         {
@@ -202,6 +202,6 @@ public class SpkRepository
         return (repositoryCache.Packages, repositoryCache.Thumbnails);
     }
 
-    private static string[] GetPathParts(string s) => s.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private static string[] GetPathParts(string s) => s.Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries);
     private static string GetPath(IEnumerable<string> s, char separator) => string.Join(separator, s);
 }

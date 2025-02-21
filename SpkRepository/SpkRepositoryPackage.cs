@@ -28,7 +28,7 @@ public class SpkRepositoryPackage
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("md5")] public string? Md5Hex { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("size")] public long? Size { get; set; }
 
-    [JsonPropertyName("snapshot")] public Uri[] Snapshots { get; set; } = Array.Empty<Uri>();
+    [JsonPropertyName("snapshot")] public Uri[] Snapshots { get; set; } = [];
     [JsonPropertyName("maintainer_url")] public string? MaintainerUrl { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("price")] public int? Price { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("download_count")] public int DownloadCount { get; set; }
