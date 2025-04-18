@@ -34,7 +34,8 @@ public class SpkRepository
     {
         foreach (var source in _sources)
             source.Cache = null;
-        _packagesAndThumbnails = null;
+        if (_packagesAndThumbnails is not null)
+            _packagesAndThumbnails = GetPackages(_sources);
     }
 
     public IEnumerable<(string Path, Delegate? Handler)> GetRoutes(Func<byte[], object> getPng)
@@ -182,7 +183,7 @@ public class SpkRepository
                 }
             }
 
-            if (packageInformation is null) 
+            if (packageInformation is null)
                 continue;
             foreach (var thumbnailKey in packageInformation.Thumbnails.Keys)
                 thumbnailsReferencesCount[thumbnailKey] = thumbnailsReferencesCount.TryGetOrDefault(thumbnailKey) + 1;
