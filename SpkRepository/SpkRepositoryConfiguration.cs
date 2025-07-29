@@ -10,6 +10,8 @@ public class SpkRepositoryConfiguration
     private readonly Func<Uri> _getSiteRoot;
     public Uri SiteRoot => _getSiteRoot();
 
+    public string? CacheName { get; set; }
+
     private bool _cacheDirectorySet;
     private string? _cacheDirectory;
     public string? CacheDirectory
@@ -30,6 +32,9 @@ public class SpkRepositoryConfiguration
 
     private string GetDefaultCacheDirectory()
     {
-        return Path.Combine(Path.GetTempPath(), "spk-repository");
+        var defaultCacheDirectory = Path.Combine(Path.GetTempPath(), "spk-repository");
+        if (CacheName is not null)
+            defaultCacheDirectory = Path.Combine(defaultCacheDirectory, CacheName);
+        return defaultCacheDirectory;
     }
 }
