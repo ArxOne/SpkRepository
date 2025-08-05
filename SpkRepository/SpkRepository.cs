@@ -17,6 +17,7 @@ public class SpkRepository
     private readonly IReadOnlyCollection<SpkRepositorySource> _sources;
     private readonly string[] _gpgPublicKeys;
 
+    private readonly object _packagesAndThumbnailsLock = new();
     private (IReadOnlyCollection<SpkRepositoryPackageInformations> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails)? _packagesAndThumbnails;
     private (IReadOnlyCollection<SpkRepositoryPackageInformations> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) PackagesAndThumbnails => _packagesAndThumbnails ??= GetPackages(_sources);
     private IReadOnlyCollection<SpkRepositoryPackageInformations> Packages => PackagesAndThumbnails.Packages;
@@ -26,7 +27,7 @@ public class SpkRepository
     {
         DistributionDirectory = distributionDirectory;
         _configuration = configuration;
-        _sources = sources.ToImmutableArray();
+        _sources = [.. sources];
         _gpgPublicKeys = gpgPublicKeyPaths.Select(s => File.ReadAllText(s).Replace("\r", "")).ToArray();
     }
 
@@ -72,22 +73,26 @@ public class SpkRepository
                              group p by packageName
             into g
                              select g;
-        return (packagesByName.Select(p => new SpkRepositoryPackageInformations(p.ToImmutableArray())).ToImmutableArray(), thumbnails);
+        return ([.. packagesByName.Select(p => new SpkRepositoryPackageInformations([.. p]))], thumbnails);
     }
 
     private (IDictionary<string, SpkRepositoryPackageInformation> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) ReadPackages(IEnumerable<SpkRepositorySource> sources)
     {
-        var packageInformations = new Dictionary<string, SpkRepositoryPackageInformation>();
-        var thumbnails = new Dictionary<string, byte[]>();
-        foreach (var source in sources)
+        lock (_packagesAndThumbnailsLock)
         {
-            var (sourcePackageInformations, sourceThumbnails) = ReadPackageInformations(source);
-            foreach (var sourcePackageInformation in sourcePackageInformations)
-                packageInformations[sourcePackageInformation.LocalPath] = sourcePackageInformation;
-            foreach (var sourceThumbnail in sourceThumbnails)
-                thumbnails[sourceThumbnail.Key] = sourceThumbnail.Value;
+            var packageInformations = new Dictionary<string, SpkRepositoryPackageInformation>();
+            var thumbnails = new Dictionary<string, byte[]>();
+            foreach (var source in sources)
+            {
+                var (sourcePackageInformations, sourceThumbnails) = ReadPackageInformations(source);
+                foreach (var sourcePackageInformation in sourcePackageInformations)
+                    packageInformations[sourcePackageInformation.LocalPath] = sourcePackageInformation;
+                foreach (var sourceThumbnail in sourceThumbnails)
+                    thumbnails[sourceThumbnail.Key] = sourceThumbnail.Value;
+            }
+
+            return (packageInformations, thumbnails);
         }
-        return (packageInformations, thumbnails);
     }
 
     private string? GetCacheFilePath(SpkRepositorySource source)
