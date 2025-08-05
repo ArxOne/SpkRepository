@@ -42,23 +42,33 @@ public class SpkRepository
     public IEnumerable<(string Path, Delegate? Handler)> GetRoutes(Func<byte[], object> getPng)
     {
         Console.WriteLine($"{Packages.Count} SPK packages");
-        yield return (DistributionDirectory, delegate (string unique, string? language, string? package_update_channel, int major, string arch)
+        yield return (DistributionDirectory,
+                delegate(string unique, string? language, string? package_update_channel, int major, string arch)
                 {
-                    var siteRoot = _configuration.SiteRoot;
-                    var beta = string.Equals(package_update_channel, "beta", StringComparison.InvariantCultureIgnoreCase);
-                    var spkRepositoryPackages = Packages.Select(p => p.Get(beta, major, arch)?.GetPackage(language, siteRoot, DistributionDirectory)).Where(p => p is not null);
-                    return new Dictionary<string, object>
-                    {
-                        { "packages", spkRepositoryPackages },
-                        { "keyrings", _gpgPublicKeys }
-                    };
+                    return GetRepository(package_update_channel, major, arch, language);
                 }
-        );
-        yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}", delegate (string thumbnail)
+            );
+        yield return (DistributionDirectory,
+                delegate(string unique, string? language, string? package_update_channel, int major)
+                {
+                    return GetRepository(package_update_channel, major, null, language);
+                }
+            );
+        yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}",
+                delegate(string thumbnail) { return getPng(Thumbnails.TryGetOrDefault(thumbnail)); }
+            );
+    }
+
+    private Dictionary<string, object> GetRepository(string? package_update_channel, int major, string arch, string? language)
+    {
+        var siteRoot = _configuration.SiteRoot;
+        var beta = string.Equals(package_update_channel, "beta", StringComparison.InvariantCultureIgnoreCase);
+        var spkRepositoryPackages = Packages.Select(p => p.Get(beta, major, arch)?.GetPackage(language, siteRoot, DistributionDirectory)).Where(p => p is not null);
+        return new Dictionary<string, object>
         {
-            return getPng(Thumbnails.TryGetOrDefault(thumbnail));
-        }
-        );
+            { "packages", spkRepositoryPackages },
+            { "keyrings", _gpgPublicKeys }
+        };
     }
 
     private (IReadOnlyCollection<SpkRepositoryPackageInformations> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) GetPackages(IEnumerable<SpkRepositorySource> sources)

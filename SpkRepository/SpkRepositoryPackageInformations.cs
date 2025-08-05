@@ -18,7 +18,7 @@ public class SpkRepositoryPackageInformations
         // VERY suboptimal, TODO rewrite
         var packageInformationsArray = packageInformations.OrderByDescending(p => p.Version).ToImmutableArray();
         var osMajors = packageInformationsArray.Select(i => i.OsMinimumVersion.Feature.Major).Distinct().ToImmutableArray();
-        _architectures = packageInformations.SelectMany(x => x.Architectures).Distinct().ToImmutableArray();
+        _architectures = [..packageInformations.SelectMany(x => x.Architectures).Distinct()];
 
         foreach (var architecture in _architectures)
             foreach (var beta in new[] { false, true })
