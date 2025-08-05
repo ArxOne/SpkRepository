@@ -45,13 +45,13 @@ public class SpkRepository
         yield return (DistributionDirectory,
                 delegate(string unique, string? language, string? package_update_channel, int major, string arch)
                 {
-                    return GetRepository(package_update_channel, major, arch, language);
+                    return GetPackages(package_update_channel, major, arch, language);
                 }
             );
         yield return (DistributionDirectory,
                 delegate(string unique, string? language, string? package_update_channel, int major)
                 {
-                    return GetRepository(package_update_channel, major, null, language);
+                    return GetPackages(package_update_channel, major, null, language);
                 }
             );
         yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}",
@@ -59,7 +59,7 @@ public class SpkRepository
             );
     }
 
-    private Dictionary<string, object> GetRepository(string? package_update_channel, int major, string arch, string? language)
+    private Dictionary<string, object> GetPackages(string? package_update_channel, int major, string arch, string? language)
     {
         var siteRoot = _configuration.SiteRoot;
         var beta = string.Equals(package_update_channel, "beta", StringComparison.InvariantCultureIgnoreCase);
