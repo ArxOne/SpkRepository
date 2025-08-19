@@ -15,7 +15,7 @@ public class SpkRepository
 
     private readonly SpkRepositoryConfiguration _configuration;
     private readonly IReadOnlyCollection<SpkRepositorySource> _sources;
-    private readonly string[] _gpgPublicKeys;
+    private readonly string[]? _gpgPublicKeys;
 
     private readonly object _packagesAndThumbnailsLock = new();
     private (IReadOnlyCollection<SpkRepositoryPackageInformations> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails)? _packagesAndThumbnails;
@@ -23,12 +23,12 @@ public class SpkRepository
     private IReadOnlyCollection<SpkRepositoryPackageInformations> Packages => PackagesAndThumbnails.Packages;
     private IReadOnlyDictionary<string, byte[]> Thumbnails => PackagesAndThumbnails.Thumbnails;
 
-    public SpkRepository(SpkRepositoryConfiguration configuration, string distributionDirectory, IEnumerable<SpkRepositorySource> sources, params string[] gpgPublicKeyPaths)
+    public SpkRepository(SpkRepositoryConfiguration configuration, string distributionDirectory, IEnumerable<SpkRepositorySource> sources, string[]? gpgPublicKeyPaths = null)
     {
         DistributionDirectory = distributionDirectory;
         _configuration = configuration;
         _sources = [.. sources];
-        _gpgPublicKeys = gpgPublicKeyPaths.Select(s => File.ReadAllText(s).Replace("\r", "")).ToArray();
+        _gpgPublicKeys = gpgPublicKeyPaths?.Select(s => File.ReadAllText(s).Replace("\r", "")).ToArray();
     }
 
     public void Reload()
@@ -43,20 +43,20 @@ public class SpkRepository
     {
         Console.WriteLine($"{Packages.Count} SPK packages");
         yield return (DistributionDirectory,
-                delegate(string unique, string? language, string? package_update_channel, int major, string arch)
+                delegate (string unique, string? language, string? package_update_channel, int major, string arch)
                 {
                     return GetPackages(package_update_channel, major, arch, language);
                 }
-            );
+        );
         yield return (DistributionDirectory,
-                delegate(string unique, string? language, string? package_update_channel, int major)
+                delegate (string unique, string? language, string? package_update_channel, int major)
                 {
                     return GetPackages(package_update_channel, major, null, language);
                 }
-            );
+        );
         yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}",
-                delegate(string thumbnail) { return getPng(Thumbnails.TryGetOrDefault(thumbnail)); }
-            );
+                delegate (string thumbnail) { return getPng(Thumbnails.TryGetOrDefault(thumbnail)); }
+        );
     }
 
     private Dictionary<string, object> GetPackages(string? package_update_channel, int major, string arch, string? language)
@@ -64,11 +64,11 @@ public class SpkRepository
         var siteRoot = _configuration.SiteRoot;
         var beta = string.Equals(package_update_channel, "beta", StringComparison.InvariantCultureIgnoreCase);
         var spkRepositoryPackages = Packages.Select(p => p.Get(beta, major, arch)?.GetPackage(language, siteRoot, DistributionDirectory)).Where(p => p is not null);
-        return new Dictionary<string, object>
-        {
-            { "packages", spkRepositoryPackages },
-            { "keyrings", _gpgPublicKeys }
-        };
+        var packages = new Dictionary<string, object>();
+        packages["packages"] = spkRepositoryPackages;
+        if (_gpgPublicKeys is not null)
+            packages["keyrings"] = _gpgPublicKeys;
+        return packages;
     }
 
     private (IReadOnlyCollection<SpkRepositoryPackageInformations> Packages, IReadOnlyDictionary<string, byte[]> Thumbnails) GetPackages(IEnumerable<SpkRepositorySource> sources)
