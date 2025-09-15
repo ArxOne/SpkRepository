@@ -3,21 +3,21 @@ using System.IO;
 
 namespace ArxOne.Synology;
 
-public class SpkRepositoryConfiguration
+public record SpkRepositoryConfiguration
 {
-    public string StorageRoot { get; }
+    public string StorageRoot { get; init; }
 
     private readonly Func<Uri> _getSiteRoot;
     public Uri SiteRoot => _getSiteRoot();
 
-    public string? CacheName { get; set; }
+    public string? CacheName { get; init; }
 
-    private bool _cacheDirectorySet;
-    private string? _cacheDirectory;
+    private readonly bool _cacheDirectorySet;
+    private readonly string? _cacheDirectory;
     public string? CacheDirectory
     {
         get { return _cacheDirectorySet ? _cacheDirectory : GetDefaultCacheDirectory(); }
-        set
+        init
         {
             _cacheDirectory = value;
             _cacheDirectorySet = true;
