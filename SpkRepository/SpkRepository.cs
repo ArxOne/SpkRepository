@@ -177,7 +177,9 @@ public class SpkRepository
                         continue;
 
                     var thumbnailsId = icons.ToDictionary(
+#pragma warning disable S4790 // no crypto, just dispatch
                         i => Convert.ToHexString(MD5.HashData(i.Value)).ToLower() + ".png",
+#pragma warning default S4790
                         kv => (Name: kv.Key, Data: kv.Value));
                     foreach (var thumbnail in thumbnailsId)
                         repositoryCache.Thumbnails[thumbnail.Key] = thumbnail.Value.Data;
