@@ -198,6 +198,9 @@ public class SpkRepository
                 catch (FormatException)
                 {
                 }
+                catch (EndOfStreamException)
+                {
+                }
             }
 
             if (packageInformation is null)
