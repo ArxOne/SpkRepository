@@ -1,6 +1,6 @@
-﻿using System;
+﻿namespace ArxOne.Synology;
 
-namespace ArxOne.Synology;
+using System;
 
 public class SpkRepositoryPackageInformationKey(bool beta, int major, string architecture)
 {

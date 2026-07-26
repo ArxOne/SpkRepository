@@ -1,4 +1,6 @@
 ﻿
+namespace ArxOne.Synology;
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,9 +8,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-
-namespace ArxOne.Synology;
-
 using System.Collections.Immutable;
 
 public partial record SpkRepositoryPackageInformation
@@ -55,7 +54,7 @@ public partial record SpkRepositoryPackageInformation
 
     public SpkVersion? OsMinimumVersion => SpkVersion.TryParse(OsMinVer);
 
-    public ImmutableArray<string> Architectures { get; init; }
+    public ImmutableArray<string> Architectures { get; init; } = [];
 
     public string? Package
     {
@@ -92,6 +91,20 @@ public partial record SpkRepositoryPackageInformation
         }
     }
 
+    public IEnumerable<string> Dependencies
+    {
+        get
+        {
+            if (!Info.TryGetValue("install_dep_packages", out var depPackages))
+                return [];
+            if (depPackages is not string literalDepPackages)
+                return [];
+            return literalDepPackages.Split(':');
+        }
+    }
+
+    public string? SourceID { get; init; }
+
     protected SpkRepositoryPackageInformation() { }
 
     public SpkRepositoryPackageInformation(string localPath, string downloadPath, string osMinVer)
@@ -106,9 +119,7 @@ public partial record SpkRepositoryPackageInformation
     {
         var filename = Path.GetFileName(LocalPath);
         if (filename.Contains("noarch"))
-        {
             return ["noarch"];
-        }
         var match = ArchitecturesRegex().Match(filename);
 
         if (!match.Success)

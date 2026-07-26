@@ -117,7 +117,7 @@ public class SpkRepository
         var root = source.SourceRelativeDirectory.Trim('/').Replace('/', '-').Replace('\\', '-');
         if (!string.IsNullOrEmpty(root))
             cacheDirectory = Path.Combine(cacheDirectory, root);
-        return cacheDirectory + ".json";
+        return cacheDirectory + ".2.json";
     }
 
     private SpkRepositoryCache LoadPackageCache(SpkRepositorySource source)
@@ -194,7 +194,8 @@ public class SpkRepository
                         )
                     {
                         Info = info!,
-                        Thumbnails = thumbnailsId.ToImmutableDictionary(kv => kv.Value.Name, kv => kv.Key)
+                        Thumbnails = thumbnailsId.ToImmutableDictionary(kv => kv.Value.Name, kv => kv.Key),
+                        SourceID = source.SourceID,
                     };
                     packagesInformation[spkFile] = packageInformation;
                     hasNew = true;
@@ -229,4 +230,36 @@ public class SpkRepository
 
     private static string[] GetPathParts(string s) => s.Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries);
     private static string GetPath(IEnumerable<string> s, char separator) => string.Join(separator, s);
+
+    public SpkRepositoryPackageInformation? FindPackage(bool beta, int major, string architecture, string? name, Version? version, string? sourceID = null)
+    {
+        if (version is null)
+            return FindPackage(beta, major, architecture, name, sourceID);
+        return (from p in Packages
+                let i = p.Get(beta, major, architecture)
+                where i is not null
+                where Matches(i, name, sourceID) && i.Version?.Feature is { } feature && feature == version
+                select i)
+                .FirstOrDefault();
+    }
+
+    public SpkRepositoryPackageInformation? FindPackage(bool beta, int major, string architecture,string? name, string? sourceID = null)
+    {
+        return (from p in Packages
+                let i = p.Get(beta, major, architecture)
+                where i is not null
+                where Matches(i, name, sourceID) 
+                orderby i.Version descending 
+                select i)
+            .FirstOrDefault();
+    }
+
+    private static bool Matches(SpkRepositoryPackageInformation package, string? name, string? sourceID)
+    {
+        if (name is not null && package.Package != name)
+            return false;
+        if (sourceID is not null && package.SourceID != sourceID)
+            return false;
+        return true;
+    }
 }
