@@ -9,23 +9,24 @@ using System.Text.RegularExpressions;
 
 namespace ArxOne.Synology;
 
-public partial class SpkRepositoryPackageInformation
+using System.Collections.Immutable;
+
+public partial record SpkRepositoryPackageInformation
 {
     [GeneratedRegex(@"\[([^\[\]]+)\]")]
     private static partial Regex ArchitecturesRegex();
 
-    [JsonIgnore]
-    public Dictionary<string, object?> Info { get; set; }
+    [JsonIgnore] public ImmutableDictionary<string, object?> Info { get; init; } = ImmutableDictionary<string, object?>.Empty;
 
     #region Serialization garbage (or failure)
 
     [JsonPropertyName("Info")]
-    public Dictionary<string, object> SerializableInfo
+    public ImmutableDictionary<string, object> SerializableInfo
     {
         get { return Info; }
-        set
+        init
         {
-            Info = value.ToDictionary(kv => kv.Key, kv => GetJsonValue((JsonElement)kv.Value));
+            Info = value.ToImmutableDictionary(kv => kv.Key, kv => GetJsonValue((JsonElement)kv.Value));
         }
     }
 
@@ -46,15 +47,15 @@ public partial class SpkRepositoryPackageInformation
     }
     #endregion
 
-    public Dictionary<string, string> Thumbnails { get; set; } = new();
+    public ImmutableDictionary<string, string> Thumbnails { get; init; } = ImmutableDictionary<string, string>.Empty;
 
-    public string LocalPath { get; set; }
-    public string DownloadPath { get; set; }
-    public string OsMinVer { get; }
+    public string LocalPath { get; init; } = "";
+    public string DownloadPath { get; init; } = "";
+    public string OsMinVer { get; init; } = "";
 
     public SpkVersion? OsMinimumVersion => SpkVersion.TryParse(OsMinVer);
 
-    public string[] Architectures { get; set; }
+    public ImmutableArray<string> Architectures { get; init; }
 
     public string? Package
     {
@@ -91,6 +92,8 @@ public partial class SpkRepositoryPackageInformation
         }
     }
 
+    protected SpkRepositoryPackageInformation() { }
+
     public SpkRepositoryPackageInformation(string localPath, string downloadPath, string osMinVer)
     {
         LocalPath = localPath;
@@ -99,7 +102,7 @@ public partial class SpkRepositoryPackageInformation
         Architectures = GetArchitectures();
     }
 
-    private string[] GetArchitectures()
+    private ImmutableArray<string> GetArchitectures()
     {
         var filename = Path.GetFileName(LocalPath);
         if (filename.Contains("noarch"))
@@ -112,7 +115,7 @@ public partial class SpkRepositoryPackageInformation
             return [];
 
         var platformsString = match.Groups[1].Value;
-        return platformsString.Split('-');
+        return [.. platformsString.Split('-')];
     }
 
     public SpkRepositoryPackage GetPackage(string? language, Uri siteRoot, string distributionDirectory)
@@ -125,4 +128,3 @@ public partial class SpkRepositoryPackageInformation
         };
     }
 }
- 

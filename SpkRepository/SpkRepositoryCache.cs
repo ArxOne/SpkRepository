@@ -1,7 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿namespace ArxOne.Synology;
 
-namespace ArxOne.Synology;
+using System.Collections.Generic;
 
 public class SpkRepositoryCache
 {

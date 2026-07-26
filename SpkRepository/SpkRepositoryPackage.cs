@@ -1,50 +1,51 @@
-﻿using System;
+﻿
+namespace ArxOne.Synology;
+
+using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 // ReSharper disable StringLiteralTypo
 
-namespace ArxOne.Synology;
-
-public class SpkRepositoryPackage
+public record SpkRepositoryPackage
 {
     // -- required
-    [JsonPropertyName("link")] public Uri Link { get; set; }
-    [JsonPropertyName("thumbnail")] public Uri[] Thumbnails { get; set; }
+    [JsonPropertyName("link")] public Uri Link { get; init; }
+    [JsonPropertyName("thumbnail")] public Uri[] Thumbnails { get; init; }
 
-    [JsonPropertyName("package")] public string Package { get; set; }
-    [JsonPropertyName("version")] public string Version { get; set; }
-    [JsonPropertyName("dname")] public string DisplayName { get; set; }
-    [JsonPropertyName("desc")] public string Description { get; set; }
-    [JsonPropertyName("maintainer")] public string Maintainer { get; set; }
-    [JsonPropertyName("changelog")] public string? ChangeLogHtml { get; set; }
-    [JsonPropertyName("deppkgs")] public string? DependenciesPackages { get; set; }
-    [JsonPropertyName("conflictpkgs")] public string? ConflictingPackages { get; set; }
-    [JsonPropertyName("qinst")] public bool QInstall { get; set; } = true;
-    [JsonPropertyName("qstart")] public bool QStart { get; set; } = true;
-    [JsonPropertyName("qupgrade")] public bool QUpgrade { get; set; } = true;
-    [JsonPropertyName("thirdparty")] public bool ThirdParty { get; set; } = true;
+    [JsonPropertyName("package")] public string Package { get; init; }
+    [JsonPropertyName("version")] public string Version { get; init; }
+    [JsonPropertyName("dname")] public string DisplayName { get; init; }
+    [JsonPropertyName("desc")] public string Description { get; init; }
+    [JsonPropertyName("maintainer")] public string Maintainer { get; init; }
+    [JsonPropertyName("changelog")] public string? ChangeLogHtml { get; init; }
+    [JsonPropertyName("deppkgs")] public string? DependenciesPackages { get; init; }
+    [JsonPropertyName("conflictpkgs")] public string? ConflictingPackages { get; init; }
+    [JsonPropertyName("qinst")] public bool QInstall { get; init; } = true;
+    [JsonPropertyName("qstart")] public bool QStart { get; init; } = true;
+    [JsonPropertyName("qupgrade")] public bool QUpgrade { get; init; } = true;
+    [JsonPropertyName("thirdparty")] public bool ThirdParty { get; init; } = true;
 
     // -- optional
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("md5")] public string? Md5Hex { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("size")] public long? Size { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("md5")] public string? Md5Hex { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("size")] public long? Size { get; init; }
 
-    [JsonPropertyName("snapshot")] public Uri[] Snapshots { get; set; } = [];
-    [JsonPropertyName("maintainer_url")] public string? MaintainerUrl { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("price")] public int? Price { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("download_count")] public int DownloadCount { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("recent_download_count")] public int? RecentDownloadCount { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("depsers")] public string? StartDepServices { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("start")] public bool Start { get; set; } = true;
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("distributor")] public string? Distributor { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("distributor_url")] public string? DistributorUrl { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("support_url")] public string? SupportUrl { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("category")] public int Category { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("subcategory")] public int SubCategory { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("type")] public int Type { get; set; }
-    [JsonPropertyName("silent_install")] public bool SilentInstall { get; set; }
-    [JsonPropertyName("silent_uninstall")] public bool SilentUninstall { get; set; }
-    [JsonPropertyName("silent_upgrade")] public bool SilentUpgrade { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("auto_upgrade_from")] public string? AutoUpgradeFrom { get; set; }
+    [JsonPropertyName("snapshot")] public Uri[] Snapshots { get; init; } = [];
+    [JsonPropertyName("maintainer_url")] public string? MaintainerUrl { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("price")] public int? Price { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("download_count")] public int DownloadCount { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("recent_download_count")] public int? RecentDownloadCount { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("depsers")] public string? StartDepServices { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("start")] public bool Start { get; init; } = true;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("distributor")] public string? Distributor { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("distributor_url")] public string? DistributorUrl { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("support_url")] public string? SupportUrl { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("category")] public int Category { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("subcategory")] public int SubCategory { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("type")] public int Type { get; init; }
+    [JsonPropertyName("silent_install")] public bool SilentInstall { get; init; }
+    [JsonPropertyName("silent_uninstall")] public bool SilentUninstall { get; init; }
+    [JsonPropertyName("silent_upgrade")] public bool SilentUpgrade { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)][JsonPropertyName("auto_upgrade_from")] public string? AutoUpgradeFrom { get; init; }
 
     public SpkRepositoryPackage()
     {
