@@ -215,7 +215,7 @@ public class SpkRepository
                 repositoryCache.Thumbnails.Remove(unusedThumbnail);
             foreach (var removedPackageInformation in removedPackagesInformation)
                 packageInformations.Remove(removedPackageInformation);
-            repositoryCache.Packages = packageInformations.Values.ToArray();
+            repositoryCache.Packages = [.. packageInformations.Values];
             SavePackageCache(source, repositoryCache);
         }
 

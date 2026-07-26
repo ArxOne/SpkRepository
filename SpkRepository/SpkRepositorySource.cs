@@ -1,9 +1,10 @@
-﻿using System.Collections.Generic;
-using System.IO;
-
+﻿
 namespace ArxOne.Synology;
 
-public delegate (IReadOnlyDictionary<string, object>? Info, IReadOnlyDictionary<string, byte[]> Icons) ReadPackageInfo(Stream spkStream);
+using System.IO;
+using System.Collections.Immutable;
+
+public delegate (ImmutableDictionary<string, object>? Info, ImmutableDictionary<string, byte[]> Icons) ReadPackageInfo(Stream spkStream);
 
 public record SpkRepositorySource(string SourceRelativeDirectory, ReadPackageInfo ReadPackageInfo)
 {
