@@ -27,7 +27,7 @@ public class SpkRepository
     public SpkRepository(SpkRepositoryConfiguration configuration, string distributionDirectory, IEnumerable<SpkRepositorySource> sources, string[]? gpgPublicKeyPaths = null)
     {
         DistributionDirectory = distributionDirectory;
-        _configuration = configuration;
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _sources = [.. sources];
         _gpgPublicKeys = gpgPublicKeyPaths?.Select(s => File.ReadAllText(s).Replace("\r", "")).ToArray();
     }
@@ -45,25 +45,30 @@ public class SpkRepository
         Console.WriteLine($"{Packages.Length} SPK packages");
         yield return (DistributionDirectory,
                 // ReSharper disable once InconsistentNaming
+                // ReSharper disable once UnusedParameter.Local
                 delegate (string unique, string? language, string? package_update_channel, int major, string arch)
                 {
+                    // ReSharper disable once ConvertToLambdaExpression
                     return GetPackages(package_update_channel, major, arch, language);
                 }
         );
         yield return (DistributionDirectory,
                 // ReSharper disable once InconsistentNaming
+                // ReSharper disable once UnusedParameter.Local
                 delegate (string unique, string? language, string? package_update_channel, int major)
                 {
+                    // ReSharper disable once ConvertToLambdaExpression
                     return GetPackages(package_update_channel, major, null, language);
                 }
         );
         yield return (DistributionDirectory.TrimEnd('/') + "/thumbnails/{thumbnail}",
-                delegate (string thumbnail) { return getPng(Thumbnails.TryGetOrDefault(thumbnail)); }
+                // ReSharper disable once ConvertToLambdaExpression
+                delegate (string thumbnail) { return getPng(Thumbnails.TryGetOrDefault(thumbnail) ?? []); }
         );
     }
 
     // ReSharper disable once InconsistentNaming
-    private ImmutableDictionary<string, object> GetPackages(string? package_update_channel, int major, string arch, string? language)
+    private ImmutableDictionary<string, object> GetPackages(string? package_update_channel, int major, string? arch, string? language)
     {
         var siteRoot = _configuration.SiteRoot;
         var beta = string.Equals(package_update_channel, "beta", StringComparison.InvariantCultureIgnoreCase);
@@ -191,7 +196,7 @@ public class SpkRepository
                         spkFile,
                         "/" + GetPath(GetPathParts(spkFile).Skip(GetPathParts(_configuration.StorageRoot).Length), '/'),
                         osMinVer
-                        )
+                    )
                     {
                         Info = info!,
                         Thumbnails = thumbnailsId.ToImmutableDictionary(kv => kv.Value.Name, kv => kv.Key),
@@ -240,16 +245,16 @@ public class SpkRepository
                 where i is not null
                 where Matches(i, name, sourceID) && i.Version?.Feature is { } feature && feature == version
                 select i)
-                .FirstOrDefault();
+            .FirstOrDefault();
     }
 
-    public SpkRepositoryPackageInformation? FindPackage(bool beta, int major, string architecture,string? name, string? sourceID = null)
+    public SpkRepositoryPackageInformation? FindPackage(bool beta, int major, string architecture, string? name, string? sourceID = null)
     {
         return (from p in Packages
                 let i = p.Get(beta, major, architecture)
                 where i is not null
-                where Matches(i, name, sourceID) 
-                orderby i.Version descending 
+                where Matches(i, name, sourceID)
+                orderby i.Version descending
                 select i)
             .FirstOrDefault();
     }
